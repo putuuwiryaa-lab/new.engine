@@ -1,6 +1,9 @@
+import os
 import re
 import requests
 from bs4 import BeautifulSoup
+
+HISTORY_LIMIT = int(os.environ.get("SCRAPE_HISTORY_LIMIT", "1200"))
 
 RAJAPAITO_MARKETS = {
     "TENNESSE MORNING": "https://w2.rajapaito1.net/data-togel-tennesse-morning/",
@@ -31,7 +34,7 @@ HEADERS = {
 }
 
 
-def scrape_rajapaito_market(url: str, limit: int = 170) -> str:
+def scrape_rajapaito_market(url: str, limit: int = HISTORY_LIMIT) -> str:
     try:
         res = requests.get(
             url,
