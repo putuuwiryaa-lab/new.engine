@@ -10,6 +10,7 @@ SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY") or os.environ["SUPABASE_SERVI
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BASE = "https://159.65.133.131"
+HISTORY_LIMIT = int(os.environ.get("SCRAPE_HISTORY_LIMIT", "1200"))
 
 MARKETS = {
   "MAGNUM CAMBODIA": "/data-pengeluaran-togel-magnum-cambodia/",
@@ -108,7 +109,7 @@ def scrape_market(url):
         for i in range(0, len(digits) - 3, 4):
             results.append(digits[i] + digits[i+1] + digits[i+2] + digits[i+3])
 
-        return ' '.join(results[-170:])
+        return ' '.join(results[-HISTORY_LIMIT:])
     except Exception as e:
         print(f"Error scraping {url}: {e}")
         return ''
