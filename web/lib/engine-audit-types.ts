@@ -1,5 +1,26 @@
 export type EngineRunStatus = "running" | "succeeded" | "partial" | "failed";
 
+export type GateCheck = {
+  passed: boolean;
+  actual: number;
+  threshold: number;
+  operator: string;
+};
+
+export type PositionReleaseGate = {
+  status: "pass" | "hold";
+  reasons: string[];
+  checks: Record<string, GateCheck>;
+};
+
+export type MarketReleaseGate = {
+  status: "eligible" | "held";
+  passedPositions: number;
+  requiredPositions: number;
+  complete: boolean;
+  releaseStatus: string;
+};
+
 export type SelectedCandidate = {
   modelName: string;
   position: number;
@@ -24,6 +45,7 @@ export type AuditPosition = {
   rankedDigits: number[];
   topDigits: number[];
   probabilities: Record<string, number>;
+  releaseGate: PositionReleaseGate;
 };
 
 export type EngineRun = {
@@ -50,5 +72,7 @@ export type EngineMarketAudit = {
   historyUpdatedAt: string | null;
   candidateCount: number;
   releaseStatus: string;
+  releaseGateConfig: Record<string, unknown>;
+  marketReleaseGate: MarketReleaseGate;
   positions: AuditPosition[];
 };
