@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { MarketTable } from "@/components/market-table";
 import { getDashboardData } from "@/lib/markets";
 
@@ -59,7 +61,7 @@ export default async function DashboardPage() {
         </div>
         <div className="topbar-status">
           <span className="status-pill status-ok"><span className="status-dot" />PIPELINE ONLINE</span>
-          <span className="version-tag mono">WEB v0.1</span>
+          <Link className="status-pill status-research" href="/engine">ENGINE AUDIT</Link>
         </div>
       </header>
 
@@ -68,8 +70,8 @@ export default async function DashboardPage() {
           <p className="eyebrow">RESEARCH CONSOLE / DATA FIRST</p>
           <h1>Market data integrity before model release.</h1>
           <p>
-            Console operasional untuk memeriksa freshness, kedalaman histori, dan snapshot terbaru
-            sebelum kandidat engine mendapat izin rilis.
+            Console operasional untuk memeriksa freshness, kedalaman histori, snapshot terbaru,
+            dan evidence engine sebelum kandidat mendapat izin rilis.
           </p>
           <div className="hero-meta">
             <span>Last ingest</span>
@@ -84,13 +86,17 @@ export default async function DashboardPage() {
           </div>
           <div className="release-lock">LOCKED</div>
           <p>
-            Engine Core v0.1 sudah tersedia, tetapi output belum dipublikasikan sebagai prediksi.
-            Evidence dan audit tetap menjadi syarat rilis.
+            Full engine audit sudah tersimpan untuk seluruh market, tetapi output belum dipublikasikan
+            sebagai prediksi. Release gate dan prediction journal tetap menjadi syarat berikutnya.
           </p>
           <div className="release-lines">
             <span><i />Walk-forward evaluation</span>
             <span><i />Baseline comparison</span>
+            <span><i />Audit persistence</span>
             <span className="pending"><i />Prediction journal</span>
+          </div>
+          <div style={{ marginTop: 22 }}>
+            <Link className="status-pill status-research" href="/engine">BUKA AUDIT ENGINE →</Link>
           </div>
         </aside>
       </section>
@@ -129,9 +135,9 @@ export default async function DashboardPage() {
           <div><strong>Validation</strong><small>Guard + retry</small></div>
         </div>
         <div className="pipeline-line" />
-        <div className="pipeline-step active">
+        <div className="pipeline-step complete">
           <span>03</span>
-          <div><strong>Engine Core</strong><small>Research audit</small></div>
+          <div><strong>Engine Audit</strong><small>71 market persisted</small></div>
         </div>
         <div className="pipeline-line muted-line" />
         <div className="pipeline-step muted-step">
