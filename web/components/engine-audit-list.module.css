@@ -1,0 +1,249 @@
+.section {
+  margin-top: 18px;
+  overflow: hidden;
+}
+
+.heading {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.heading h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.controls {
+  display: grid;
+  gap: 10px;
+}
+
+.controls input,
+.controls select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line-bright);
+  border-radius: 12px;
+  outline: none;
+  color: var(--text);
+  background: rgba(5, 10, 17, 0.78);
+}
+
+.controls input:focus,
+.controls select:focus {
+  border-color: rgba(99, 230, 255, 0.52);
+  box-shadow: 0 0 0 3px rgba(99, 230, 255, 0.08);
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.cardLink {
+  display: block;
+  border-radius: 15px;
+}
+
+.card {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: linear-gradient(150deg, rgba(17, 27, 42, 0.96), rgba(9, 16, 26, 0.9));
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.cardLink:active .card {
+  transform: scale(0.992);
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.identity {
+  min-width: 0;
+}
+
+.identity h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.identity p {
+  margin: 5px 0 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.summary div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.summary span,
+.positionHeader span,
+.metric span {
+  display: block;
+  color: var(--dim);
+  font-size: 0.63rem;
+}
+
+.summary strong {
+  display: block;
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: 0.79rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.positionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.position {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.positionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.positionHeader strong {
+  color: var(--cyan);
+  font-size: 0.75rem;
+}
+
+.digits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0;
+}
+
+.digit {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(99, 230, 255, 0.25);
+  border-radius: 7px;
+  color: var(--text);
+  background: var(--cyan-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.positionMeta {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.positionMeta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.liftPositive {
+  color: var(--green) !important;
+}
+
+.liftNegative {
+  color: var(--amber) !important;
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+  color: var(--cyan);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.empty {
+  padding: 34px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (min-width: 721px) {
+  .heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    padding: 24px 26px;
+  }
+
+  .controls {
+    grid-template-columns: minmax(220px, 310px) 190px;
+  }
+
+  .list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(99, 230, 255, 0.27);
+    background: linear-gradient(150deg, rgba(19, 32, 49, 0.98), rgba(10, 18, 29, 0.92));
+  }
+
+  .positionGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 390px) {
+  .summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .summary div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .positionGrid {
+    grid-template-columns: 1fr;
+  }
+}
