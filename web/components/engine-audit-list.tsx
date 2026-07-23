@@ -7,7 +7,7 @@ import type { EngineMarketAudit } from "@/lib/engine-audit-types";
 
 import styles from "./engine-audit-list.module.css";
 
-type QualityFilter = "all" | "positive" | "attention";
+type QualityFilter = "all" | "eligible" | "held";
 
 const POSITION_LABELS = ["AS", "KOP", "KEPALA", "EKOR"];
 
@@ -18,10 +18,6 @@ function percent(value: number): string {
 function liftLabel(value: number): string {
   const points = value * 100;
   return `${points >= 0 ? "+" : ""}${points.toFixed(1)} pp`;
-}
-
-function hasPositiveLift(audit: EngineMarketAudit): boolean {
-  return audit.positions.every((position) => position.selectedCandidate.lift > 0);
 }
 
 export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
@@ -35,11 +31,10 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
         !normalizedQuery ||
         audit.marketId.toLowerCase().includes(normalizedQuery) ||
         audit.marketName.toLowerCase().includes(normalizedQuery);
-      const allPositive = hasPositiveLift(audit);
       const matchesFilter =
         filter === "all" ||
-        (filter === "positive" && allPositive) ||
-        (filter === "attention" && !allPositive);
+        (filter === "eligible" && audit.marketReleaseGate.status === "eligible") ||
+        (filter === "held" && audit.marketReleaseGate.status === "held");
       return matchesQuery && matchesFilter;
     });
   }, [audits, filter, query]);
@@ -49,10 +44,10 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
       <div className={styles.heading}>
         <div>
           <p className="eyebrow">LATEST ENGINE AUDITS</p>
-          <h2>Market candidate registry</h2>
+          <h2>Market release-gate registry</h2>
           <p className="muted">
-            {filteredAudits.length} dari {audits.length} audit ditampilkan. Top digit adalah output riset,
-            bukan rilis prediksi.
+            {filteredAudits.length} dari {audits.length} audit ditampilkan. Gate pass tetap berstatus
+            research-only dan belum menjadi rilis prediksi.
           </p>
         </div>
         <div className={styles.controls}>
@@ -68,14 +63,14 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
             />
           </label>
           <label>
-            <span className="sr-only">Filter kualitas audit</span>
+            <span className="sr-only">Filter keputusan gate</span>
             <select
               value={filter}
               onChange={(event) => setFilter(event.target.value as QualityFilter)}
             >
-              <option value="all">Semua audit</option>
-              <option value="positive">Semua posisi lift positif</option>
-              <option value="attention">Perlu perhatian</option>
+              <option value="all">Semua gate</option>
+              <option value="eligible">Gate pass 4/4</option>
+              <option value="held">Gate hold</option>
             </select>
           </label>
         </div>
@@ -84,9 +79,7 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
       {filteredAudits.length ? (
         <div className={styles.list}>
           {filteredAudits.map((audit) => {
-            const positivePositions = audit.positions.filter(
-              (position) => position.selectedCandidate.lift > 0,
-            ).length;
+            const eligible = audit.marketReleaseGate.status === "eligible";
 
             return (
               <Link
@@ -100,7 +93,9 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
                       <h3>{audit.marketName}</h3>
                       <p className="mono">{audit.marketId}</p>
                     </div>
-                    <span className="status-pill status-research">RESEARCH</span>
+                    <span className={`status-pill ${eligible ? "status-ok" : "status-warn"}`}>
+                      {eligible ? "GATE PASS" : "GATE HOLD"}
+                    </span>
                   </div>
 
                   <div className={styles.summary}>
@@ -113,22 +108,25 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
                       <strong className="mono">{audit.candidateCount.toLocaleString("id-ID")}</strong>
                     </div>
                     <div>
-                      <span>Positive lift</span>
-                      <strong className="mono">{positivePositions}/4 posisi</strong>
+                      <span>Position gate</span>
+                      <strong className="mono">
+                        {audit.marketReleaseGate.passedPositions}/{audit.marketReleaseGate.requiredPositions} pass
+                      </strong>
                     </div>
                   </div>
 
                   <div className={styles.positionGrid}>
                     {audit.positions.map((position) => {
                       const candidate = position.selectedCandidate;
-                      const liftClass =
-                        candidate.lift > 0 ? styles.liftPositive : styles.liftNegative;
+                      const gatePass = position.releaseGate.status === "pass";
 
                       return (
                         <div className={styles.position} key={position.position}>
                           <div className={styles.positionHeader}>
                             <strong>{POSITION_LABELS[position.position] ?? `P${position.position}`}</strong>
-                            <span className={liftClass}>{liftLabel(candidate.lift)}</span>
+                            <span className={gatePass ? styles.liftPositive : styles.liftNegative}>
+                              {gatePass ? "PASS" : "HOLD"}
+                            </span>
                           </div>
                           <div className={styles.digits}>
                             {position.topDigits.map((digit) => (
@@ -138,6 +136,7 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
                           <div className={styles.positionMeta}>
                             <span className="mono">{candidate.modelName}</span>
                             <span className="mono">W{candidate.window} · H{candidate.horizon}</span>
+                            <span className="mono">Lift {liftLabel(candidate.lift)}</span>
                             <span className="mono">Recent {percent(candidate.recentHitRate)}</span>
                           </div>
                         </div>
@@ -146,7 +145,7 @@ export function EngineAuditList({ audits }: { audits: EngineMarketAudit[] }) {
                   </div>
 
                   <span className={styles.action}>
-                    Buka audit lengkap <span aria-hidden="true">→</span>
+                    Buka evidence gate <span aria-hidden="true">→</span>
                   </span>
                 </article>
               </Link>
