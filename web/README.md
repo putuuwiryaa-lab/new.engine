@@ -1,11 +1,11 @@
 # NEW.ENGINE Web
 
-Next.js research console untuk pipeline NEW.ENGINE.
+Mobile-first Next.js research console untuk pipeline NEW.ENGINE.
 
 ## Arsitektur
 
 ```text
-Vercel / Next.js web
+Vercel / Next.js mobile web
         ↓ server-side read
 Supabase / markets
         ↑ scheduled write
@@ -13,6 +13,22 @@ Render / Python scraper + engine
 ```
 
 Web ditempatkan di Vercel. Scraper dan engine Python tetap berjalan di Render karena keduanya merupakan scheduled/background compute, bukan request web interaktif.
+
+## Mobile-first
+
+Antarmuka dirancang untuk penggunaan utama pada layar ponsel 320–430 px:
+
+- safe-area untuk notch dan home indicator;
+- header ringkas dan sticky;
+- kartu market sebagai pengganti tabel horizontal;
+- target sentuh minimal sekitar 44 px;
+- pencarian dan filter berukuran penuh;
+- kartu metrik 2×2;
+- pipeline dapat digeser horizontal;
+- halaman detail, statistik posisi, dan histori responsif;
+- metadata mobile web app dan mode standalone.
+
+Tabel registry tetap tersedia untuk tablet dan desktop. Manifest tidak menyediakan offline cache; koneksi tetap diperlukan untuk membaca Supabase.
 
 ## Fitur v0.1
 
@@ -65,6 +81,19 @@ npm run build
 5. Deploy.
 
 Tidak perlu mengubah konfigurasi Render. Render tetap menjalankan `python run_scrapers.py` setiap enam jam.
+
+## Verifikasi mobile
+
+Periksa deployment pada lebar berikut:
+
+```text
+320 × 568
+360 × 800
+390 × 844
+412 × 915
+```
+
+Pastikan tidak ada scroll horizontal, header tidak menutupi konten, kartu dapat disentuh dengan nyaman, dan detail market dapat dibuka dari setiap kartu.
 
 ## Health check
 
