@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import type { EngineMarketAudit } from "@/lib/engine-audits";
+import type { EngineMarketAudit } from "@/lib/engine-audit-types";
 
 import styles from "./engine-audit-list.module.css";
 
