@@ -25,7 +25,7 @@ Antarmuka dirancang untuk penggunaan utama pada layar ponsel 320–430 px:
 - pencarian dan filter berukuran penuh;
 - kartu metrik 2×2;
 - pipeline dapat digeser horizontal;
-- halaman detail, statistik posisi, histori, dan audit responsif;
+- halaman detail, statistik posisi, histori, audit, dan evidence gate responsif;
 - metadata mobile web app dan mode standalone.
 
 Tabel registry tetap tersedia untuk tablet dan desktop. Manifest tidak menyediakan offline cache; koneksi tetap diperlukan untuk membaca Supabase.
@@ -43,20 +43,21 @@ Data console:
 - statistik frekuensi digit per posisi;
 - endpoint health `/api/health`.
 
-Engine audit console:
+Evidence gate console:
 
 - halaman `/engine` untuk run terbaru;
 - status run, sumber, durasi, jumlah evaluated market, validation error, dan engine error;
-- konfigurasi window, horizon, top-k, minimum training, dan recency half-life;
-- pencarian dan filter audit seluruh market;
+- konfigurasi window, horizon, top-k, dan release gate threshold;
+- filter `GATE PASS` dan `GATE HOLD`;
 - kandidat terbaik AS, KOP, KEPALA, dan EKOR;
 - top digit, model, window, horizon, lift, dan recent hit rate;
 - halaman detail audit per market;
 - hit rate, baseline, sample size, miss streak, mean actual probability, log loss, dan Brier score;
+- reason codes dan check-by-check actual value, threshold, operator, serta status;
 - distribusi probabilitas digit 0–9;
 - navigasi dua arah antara snapshot data dan audit engine.
 
-Seluruh audit tetap diberi label `research_only`. Statistik deskriptif dan output audit bukan prediksi produksi.
+Gate pass tetap diberi label `research_only`. Evidence gate bukan keputusan rilis produksi dan belum menghasilkan prediksi.
 
 ## Environment
 
@@ -107,7 +108,7 @@ Periksa deployment pada lebar berikut:
 412 × 915
 ```
 
-Pastikan tidak ada scroll horizontal, header tidak menutupi konten, kartu dapat disentuh dengan nyaman, dan halaman `/engine` serta detail audit dapat dibuka dari ponsel.
+Pastikan tidak ada scroll horizontal, header tidak menutupi konten, kartu dapat disentuh dengan nyaman, dan halaman `/engine` serta detail evidence gate dapat dibuka dari ponsel.
 
 ## Health check
 
