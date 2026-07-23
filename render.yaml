@@ -1,0 +1,18 @@
+services:
+  - type: cron
+    name: new-engine-scrapers
+    runtime: python
+    plan: starter
+    schedule: "0 */6 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_scrapers.py
+    autoDeployTrigger: commit
+    envVars:
+      - key: SCRAPE_HISTORY_LIMIT
+        value: "1200"
+      - key: RAJAPAITO_ORDER_START
+        value: "59"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
