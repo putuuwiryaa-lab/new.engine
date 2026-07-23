@@ -61,7 +61,7 @@ export default async function DashboardPage() {
         </div>
         <div className="topbar-status">
           <span className="status-pill status-ok"><span className="status-dot" />PIPELINE ONLINE</span>
-          <Link className="status-pill status-research" href="/engine">ENGINE AUDIT</Link>
+          <Link className="status-pill status-research" href="/engine">EVIDENCE GATE</Link>
         </div>
       </header>
 
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
           <h1>Market data integrity before model release.</h1>
           <p>
             Console operasional untuk memeriksa freshness, kedalaman histori, snapshot terbaru,
-            dan evidence engine sebelum kandidat mendapat izin rilis.
+            audit probabilitas, dan evidence gate sebelum kandidat mendapat izin rilis.
           </p>
           <div className="hero-meta">
             <span>Last ingest</span>
@@ -81,22 +81,23 @@ export default async function DashboardPage() {
 
         <aside className="release-card">
           <div className="release-card-top">
-            <p className="eyebrow">ENGINE RELEASE GATE</p>
+            <p className="eyebrow">PRODUCTION RELEASE</p>
             <span className="status-pill status-research">RESEARCH ONLY</span>
           </div>
           <div className="release-lock">LOCKED</div>
           <p>
-            Full engine audit sudah tersimpan untuk seluruh market, tetapi output belum dipublikasikan
-            sebagai prediksi. Release gate dan prediction journal tetap menjadi syarat berikutnya.
+            Full engine audit dan deterministic evidence gate sudah aktif. Gate pass belum berarti
+            prediksi produksi; prediction journal dan automatic settlement tetap wajib sebelum rilis.
           </p>
           <div className="release-lines">
             <span><i />Walk-forward evaluation</span>
             <span><i />Baseline comparison</span>
             <span><i />Audit persistence</span>
+            <span><i />Evidence release gate</span>
             <span className="pending"><i />Prediction journal</span>
           </div>
           <div style={{ marginTop: 22 }}>
-            <Link className="status-pill status-research" href="/engine">BUKA AUDIT ENGINE →</Link>
+            <Link className="status-pill status-research" href="/engine">BUKA EVIDENCE GATE →</Link>
           </div>
         </aside>
       </section>
@@ -139,10 +140,10 @@ export default async function DashboardPage() {
           <span>03</span>
           <div><strong>Engine Audit</strong><small>71 market persisted</small></div>
         </div>
-        <div className="pipeline-line muted-line" />
-        <div className="pipeline-step muted-step">
+        <div className="pipeline-line" />
+        <div className="pipeline-step complete">
           <span>04</span>
-          <div><strong>Release</strong><small>Locked</small></div>
+          <div><strong>Evidence Gate</strong><small>PASS / HOLD checks</small></div>
         </div>
       </section>
 
