@@ -1,6 +1,6 @@
 # NEW.ENGINE
 
-Tahap saat ini: **Phase 2 — automated research engine pipeline**.
+Tahap saat ini: **Phase 2 — automated research engine pipeline + mobile audit console**.
 
 NEW.ENGINE terdiri dari tiga komponen:
 
@@ -35,9 +35,9 @@ Engine tetap dijalankan menggunakan snapshot lama yang valid apabila sebagian sc
 Konfigurasi produksi berada di `render.yaml`:
 
 ```text
-Schedule  : 0 */6 * * *
-Command   : python run_pipeline.py
-Markets   : seluruh registry, tanpa ENGINE_MARKETS filter
+Schedule   : 0 */6 * * *
+Command    : python run_pipeline.py
+Markets    : seluruh registry, tanpa ENGINE_MARKETS filter
 Persistence: aktif
 ```
 
@@ -172,9 +172,14 @@ Fitur saat ini:
 - halaman detail market;
 - statistik deskriptif posisi digit;
 - mobile card layout dan desktop table;
-- web-app manifest dan safe-area support.
+- web-app manifest dan safe-area support;
+- halaman `/engine` untuk run audit terbaru;
+- pencarian dan filter kualitas audit market;
+- ringkasan kandidat terbaik AS, KOP, KEPALA, dan EKOR;
+- detail model, window, horizon, lift, hit rate, sample size, miss streak, log loss, Brier score, top digit, dan distribusi probabilitas;
+- navigasi dua arah antara snapshot data dan audit engine.
 
-Audit engine belum ditampilkan di web. Itu merupakan tahap berikutnya setelah full-run pertama tersimpan dengan benar.
+Audit yang tampil tetap berstatus `research_only` dan tidak boleh diperlakukan sebagai prediksi produksi.
 
 ## Environment lokal
 
@@ -211,6 +216,8 @@ python -m unittest discover -s tests -v
 
 Coverage mencakup scraper parser, retry, guard, Supabase upsert, engine validation, adaptive windows, probability models, anti-future-leakage walk-forward, audit persistence, dan orchestration full pipeline.
 
+Web CI menjalankan TypeScript typecheck dan production build untuk folder `web/`.
+
 ## Batas saat ini
 
 Belum tersedia:
@@ -220,7 +227,6 @@ Belum tersedia:
 - automatic settlement;
 - transition, delta, motif, cycle, momentum, dan regime models;
 - ensemble;
-- BBFS, Angka Ikut, angka mati, confidence, dan risk output;
-- tampilan audit engine pada web.
+- BBFS, Angka Ikut, angka mati, confidence, dan risk output.
 
-Langkah berikutnya adalah memeriksa full-run pertama pada Render dan Supabase, kemudian menampilkan audit engine yang tersimpan pada mobile web console.
+Langkah berikutnya adalah membangun release gate berbasis evidence yang menahan kandidat lemah sebelum prediction journal diperkenalkan.
