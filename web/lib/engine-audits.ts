@@ -5,6 +5,9 @@ import type {
   EngineMarketAudit,
   EngineRun,
   EngineRunStatus,
+  GateCheck,
+  MarketReleaseGate,
+  PositionReleaseGate,
   SelectedCandidate,
 } from "@/lib/engine-audit-types";
 import { getSupabaseAdmin } from "@/lib/markets";
@@ -28,6 +31,10 @@ function asNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function asNumberArray(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -35,10 +42,51 @@ function asNumberArray(value: unknown): number[] {
     .filter((item) => Number.isFinite(item));
 }
 
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
 function parseStatus(value: unknown): EngineRunStatus {
   return value === "running" || value === "succeeded" || value === "partial" || value === "failed"
     ? value
     : "failed";
+}
+
+function parseGateCheck(value: unknown): GateCheck {
+  const record = asRecord(value);
+  return {
+    passed: asBoolean(record.passed),
+    actual: asNumber(record.actual),
+    threshold: asNumber(record.threshold),
+    operator: asString(record.operator, "?"),
+  };
+}
+
+function parsePositionGate(value: unknown): PositionReleaseGate {
+  const record = asRecord(value);
+  const rawChecks = asRecord(record.checks);
+  const checks = Object.fromEntries(
+    Object.entries(rawChecks).map(([name, check]) => [name, parseGateCheck(check)]),
+  );
+  const status = record.status === "pass" ? "pass" : "hold";
+  const reasons = asStringArray(record.reasons);
+
+  return {
+    status,
+    reasons: reasons.length || status === "pass" ? reasons : ["gate_not_available"],
+    checks,
+  };
+}
+
+function parseMarketGate(value: unknown): MarketReleaseGate {
+  const record = asRecord(value);
+  return {
+    status: record.status === "eligible" ? "eligible" : "held",
+    passedPositions: asNumber(record.passed_positions),
+    requiredPositions: asNumber(record.required_positions, 4),
+    complete: asBoolean(record.complete),
+    releaseStatus: asString(record.release_status, "research_only"),
+  };
 }
 
 function parseCandidate(value: unknown): SelectedCandidate {
@@ -75,6 +123,7 @@ function parsePosition(value: unknown): AuditPosition {
     rankedDigits: asNumberArray(record.ranked_digits),
     topDigits: asNumberArray(record.top_digits),
     probabilities,
+    releaseGate: parsePositionGate(record.release_gate),
   };
 }
 
@@ -108,6 +157,8 @@ function parseAudit(row: Record<string, unknown>): EngineMarketAudit {
     historyUpdatedAt: asNullableString(row.history_updated_at),
     candidateCount: asNumber(row.candidate_count),
     releaseStatus: asString(row.release_status, "research_only"),
+    releaseGateConfig: asRecord(payload.release_gate_config),
+    marketReleaseGate: parseMarketGate(payload.market_release_gate),
     positions: rawPositions.map(parsePosition).sort((left, right) => left.position - right.position),
   };
 }
