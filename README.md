@@ -2,12 +2,13 @@
 
 Tahap saat ini: **Phase 2 — Engine Core v0.1 (research only)**.
 
-Repository memiliki dua pipeline terpisah:
+Repository memiliki tiga komponen:
 
 1. scraper otomatis yang memperbarui histori 71 market di Supabase;
-2. engine riset yang membaca histori tersebut, menjalankan walk-forward evaluation, dan menghasilkan audit probabilitas per posisi digit.
+2. engine riset yang menjalankan walk-forward evaluation dan menghasilkan audit probabilitas per posisi digit;
+3. mobile-first Next.js research console di folder `web/`.
 
-Engine v0.1 belum menerbitkan BBFS, Angka Ikut, atau prediksi produksi. Seluruh output diberi status `research_only`.
+Engine v0.1 belum menerbitkan BBFS, Angka Ikut, atau prediksi produksi. Seluruh output tetap berstatus `research_only`.
 
 ## Phase 1 — Automatic scraper pipeline
 
@@ -42,6 +43,7 @@ engine/
   evaluator.py
   registry.py
   output_builder.py
+  persistence.py
   runner.py
   models/
     frequency.py
@@ -60,6 +62,7 @@ Supabase markets
 → theoretical baseline comparison
 → deterministic candidate selection
 → auditable research output
+→ optional Supabase audit persistence
 ```
 
 ### Model awal
@@ -146,7 +149,20 @@ Output berupa JSON audit per market dan ringkasan akhir. Contoh status:
 }
 ```
 
-Engine belum dimasukkan ke Cron Job Render. Aktivasi otomatis dilakukan setelah output live diverifikasi dan runtime diketahui aman.
+Engine belum dimasukkan ke Cron Job Render. Aktivasi otomatis dilakukan setelah persistence dan runtime live diverifikasi.
+
+### Audit persistence
+
+Persistence bersifat opt-in dan default-nya nonaktif:
+
+```env
+ENGINE_PERSIST_AUDITS=false
+ENGINE_RUN_SOURCE=manual
+```
+
+Setelah tabel Supabase dibuat, ubah `ENGINE_PERSIST_AUDITS=true`. Setiap eksekusi akan menyimpan satu record pada `engine_runs` dan satu audit per market pada `engine_market_audits`.
+
+SQL pembuatan tabel tidak disimpan di repository. SQL diberikan langsung melalui chat atau prosedur deployment terkontrol.
 
 ## Environment
 
@@ -173,9 +189,9 @@ Variable engine tersedia di `.env.example` dan seluruhnya memiliki default.
 
 Jangan commit credential asli atau file `.env`.
 
-## Struktur tabel Supabase saat ini
+## Struktur tabel Supabase
 
-Scraper dan engine menggunakan tabel `markets`:
+Scraper dan engine membaca tabel `markets`:
 
 ```text
 id           text primary key
@@ -185,7 +201,20 @@ order        integer
 updated_at   timestamptz
 ```
 
-Engine v0.1 hanya membaca tabel tersebut. Tidak ada tabel atau SQL tambahan pada tahap ini.
+Persistence engine menggunakan tabel berikut setelah diaktifkan:
+
+```text
+engine_runs
+engine_market_audits
+```
+
+Kedua tabel tersebut menyimpan audit riset, bukan prediksi produksi.
+
+## Mobile-first web console
+
+Folder `web/` berisi aplikasi Next.js untuk Vercel. UI menampilkan registry market, freshness, history depth, detail result, dan statistik deskriptif. Layout utama menggunakan kartu sentuh pada layar ponsel dan tabel pada desktop.
+
+Web belum menampilkan audit engine sampai persistence live selesai diverifikasi.
 
 ## Perlindungan data scraper
 
@@ -216,7 +245,8 @@ Coverage engine mencakup:
 - respons model recency terhadap regime terbaru;
 - walk-forward tanpa future leakage;
 - pemisahan market invalid;
-- output audit berstatus `research_only`.
+- output audit berstatus `research_only`;
+- lifecycle audit persistence dan status run.
 
 ## Batas Phase 2 v0.1
 
@@ -228,8 +258,7 @@ Belum tersedia:
 - model transition, delta, motif, cycle, momentum, dan regime;
 - ensemble;
 - BBFS dan Angka Ikut;
-- penyimpanan audit engine ke Supabase;
 - scheduler engine di Render;
-- dashboard.
+- tampilan audit engine pada web.
 
-Langkah berikutnya adalah menjalankan Engine Core terhadap satu atau dua market, memeriksa audit dan runtime, lalu menambahkan release gate sebelum model baru diperkenalkan.
+Langkah berikutnya adalah membuat dua tabel persistence di Supabase, mengaktifkan persistence untuk satu atau dua market, lalu memeriksa hasil audit sebelum menambahkan scheduler engine.
