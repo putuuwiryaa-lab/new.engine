@@ -22,6 +22,15 @@ function formatUpdatedAt(value: string | null): string {
   }).format(date);
 }
 
+function MarketStatus({ isStale }: { isStale: boolean }) {
+  return (
+    <span className={`status-pill ${isStale ? "status-warn" : "status-ok"}`}>
+      <span className="status-dot" />
+      {isStale ? "STALE" : "FRESH"}
+    </span>
+  );
+}
+
 export function MarketTable({ markets }: { markets: MarketSummary[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -43,7 +52,7 @@ export function MarketTable({ markets }: { markets: MarketSummary[] }) {
   }, [filter, markets, query]);
 
   return (
-    <section className="panel market-panel">
+    <section className="panel market-panel" id="registry">
       <div className="panel-heading market-toolbar">
         <div>
           <p className="eyebrow">DATA REGISTRY</p>
@@ -58,18 +67,68 @@ export function MarketTable({ markets }: { markets: MarketSummary[] }) {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Cari market..."
               type="search"
+              inputMode="search"
+              autoComplete="off"
             />
           </label>
-          <select value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
-            <option value="all">Semua sumber</option>
-            <option value="primary">Primary</option>
-            <option value="rajapaito">Rajapaito</option>
-            <option value="stale">Data stale</option>
-          </select>
+          <label className="filter-field">
+            <span className="sr-only">Filter market</span>
+            <select value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
+              <option value="all">Semua sumber</option>
+              <option value="primary">Primary</option>
+              <option value="rajapaito">Rajapaito</option>
+              <option value="stale">Data stale</option>
+            </select>
+          </label>
         </div>
       </div>
 
-      <div className="table-wrap">
+      <div className="market-card-list" aria-label="Daftar market">
+        {filteredMarkets.map((market) => (
+          <Link
+            className="market-card-link"
+            href={`/markets/${encodeURIComponent(market.id)}`}
+            key={market.id}
+          >
+            <article className="market-card">
+              <div className="market-card-top">
+                <div className="market-card-identity">
+                  <span className="market-order mono">#{market.order}</span>
+                  <div>
+                    <h3>{market.name}</h3>
+                    <p className="mono">{market.id}</p>
+                  </div>
+                </div>
+                <MarketStatus isStale={market.isStale} />
+              </div>
+
+              <div className="market-card-result">
+                <span>Latest result</span>
+                <strong className="mono">{market.latestResult ?? "—"}</strong>
+              </div>
+
+              <div className="market-card-meta">
+                <div>
+                  <span>Sumber</span>
+                  <strong>{market.source}</strong>
+                </div>
+                <div>
+                  <span>History</span>
+                  <strong className="mono">{market.historyCount.toLocaleString("id-ID")}</strong>
+                </div>
+                <div className="market-card-updated">
+                  <span>Updated (WITA)</span>
+                  <strong className="mono">{formatUpdatedAt(market.updatedAt)}</strong>
+                </div>
+              </div>
+
+              <span className="market-card-action">Buka detail <span aria-hidden="true">→</span></span>
+            </article>
+          </Link>
+        ))}
+      </div>
+
+      <div className="table-wrap desktop-market-table">
         <table>
           <thead>
             <tr>
@@ -96,12 +155,7 @@ export function MarketTable({ markets }: { markets: MarketSummary[] }) {
                 <td className="mono result-cell">{market.latestResult ?? "—"}</td>
                 <td className="mono">{market.historyCount.toLocaleString("id-ID")}</td>
                 <td className="mono small">{formatUpdatedAt(market.updatedAt)}</td>
-                <td>
-                  <span className={`status-pill ${market.isStale ? "status-warn" : "status-ok"}`}>
-                    <span className="status-dot" />
-                    {market.isStale ? "STALE" : "FRESH"}
-                  </span>
-                </td>
+                <td><MarketStatus isStale={market.isStale} /></td>
               </tr>
             ))}
           </tbody>
