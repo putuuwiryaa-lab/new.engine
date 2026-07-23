@@ -5,9 +5,11 @@ services:
     plan: starter
     schedule: "0 */6 * * *"
     buildCommand: pip install -r requirements.txt
-    startCommand: python run_scrapers.py
+    startCommand: python run_pipeline.py
     autoDeployTrigger: commit
     envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
       - key: SCRAPE_HISTORY_LIMIT
         value: "1200"
       - key: RAJAPAITO_ORDER_START
@@ -22,6 +24,26 @@ services:
         value: "28"
       - key: SCRAPE_MIN_RETENTION_RATIO
         value: "0.5"
+      - key: ENGINE_PERSIST_AUDITS
+        value: "true"
+      - key: ENGINE_RUN_SOURCE
+        value: "render_cron_full"
+      - key: ENGINE_WINDOWS
+        value: "70,150,300,500,700,1000"
+      - key: ENGINE_EVAL_HORIZONS
+        value: "14,28,56"
+      - key: ENGINE_MIN_HISTORY
+        value: "70"
+      - key: ENGINE_MIN_TRAIN_SIZE
+        value: "50"
+      - key: ENGINE_TOP_K
+        value: "5"
+      - key: ENGINE_RECENT_EVAL_SIZE
+        value: "14"
+      - key: ENGINE_LAPLACE_ALPHA
+        value: "1"
+      - key: ENGINE_RECENCY_HALF_LIFE
+        value: "60"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
