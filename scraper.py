@@ -126,7 +126,7 @@ def main():
             if market_id not in PRIORITY_ORDER:
                 next_order += 1
 
-            result = supabase.table('markets').upsert({
+            supabase.table('markets').upsert({
                 'id': market_id,
                 'name': market_id,
                 'history_data': data,
@@ -143,7 +143,9 @@ def main():
         delay = random.uniform(2, 4)
         time.sleep(delay)
 
-    print(f"\nSelesai: {success} OK, {errors} skip/error")
+    print(f"\nSelesai scraper utama: {success} OK, {errors} skip/error")
+    return success, errors
 
 if __name__ == "__main__":
-    main()
+    _, error_count = main()
+    raise SystemExit(1 if error_count else 0)
