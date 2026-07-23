@@ -1,0 +1,118 @@
+.marketGate {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 18px;
+}
+
+.marketGateTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.marketGateTop h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.marketGateTop p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.reasonList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.reason {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 202, 102, 0.24);
+  border-radius: 8px;
+  color: var(--amber);
+  background: var(--amber-soft);
+  font-size: 0.64rem;
+}
+
+.noReason {
+  padding: 7px 9px;
+  border: 1px solid rgba(101, 242, 177, 0.24);
+  border-radius: 8px;
+  color: var(--green);
+  background: var(--green-soft);
+  font-size: 0.64rem;
+}
+
+.positionGate {
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.014);
+}
+
+.positionGateHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.positionGateHeader strong {
+  font-size: 0.8rem;
+}
+
+.checkGrid {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.check {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.checkName {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkValue {
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.pass {
+  color: var(--green);
+}
+
+.hold {
+  color: var(--amber);
+}
+
+@media (min-width: 721px) {
+  .marketGate {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .checkGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
