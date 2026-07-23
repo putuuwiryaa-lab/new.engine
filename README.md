@@ -1,37 +1,77 @@
 # NEW.ENGINE
 
-Tahap saat ini: **Phase 2 — Engine Core v0.1 (research only)**.
+Tahap saat ini: **Phase 2 — automated research engine pipeline**.
 
-Repository memiliki tiga komponen:
+NEW.ENGINE terdiri dari tiga komponen:
 
-1. scraper otomatis yang memperbarui histori 71 market di Supabase;
-2. engine riset yang menjalankan walk-forward evaluation dan menghasilkan audit probabilitas per posisi digit;
-3. mobile-first Next.js research console di folder `web/`.
+1. scraper Python untuk 71 market;
+2. Engine Core v0.1 untuk walk-forward probability audit;
+3. mobile-first Next.js research console pada folder `web/`.
 
-Engine v0.1 belum menerbitkan BBFS, Angka Ikut, atau prediksi produksi. Seluruh output tetap berstatus `research_only`.
+Seluruh output engine masih berstatus `research_only`. Sistem belum menerbitkan BBFS, Angka Ikut, atau prediksi produksi.
 
-## Phase 1 — Automatic scraper pipeline
+## Production pipeline
+
+Render menjalankan satu Cron Job setiap enam jam:
+
+```text
+python run_pipeline.py
+```
+
+Alur lengkap:
+
+```text
+scraper utama (58 market)
+→ scraper Rajapaito (13 market)
+→ validation dan snapshot guard
+→ Engine Core untuk seluruh market valid
+→ walk-forward evaluation
+→ audit persistence ke Supabase
+→ final pipeline status
+```
+
+Engine tetap dijalankan menggunakan snapshot lama yang valid apabila sebagian scraper gagal. Namun Cron Job tetap keluar dengan status gagal agar masalah ingest terlihat pada monitoring.
+
+Konfigurasi produksi berada di `render.yaml`:
+
+```text
+Schedule  : 0 */6 * * *
+Command   : python run_pipeline.py
+Markets   : seluruh registry, tanpa ENGINE_MARKETS filter
+Persistence: aktif
+```
+
+Schedule menggunakan UTC:
+
+```text
+00:00 UTC = 08:00 WITA
+06:00 UTC = 14:00 WITA
+12:00 UTC = 20:00 WITA
+18:00 UTC = 02:00 WITA
+```
+
+## Scraper
 
 Komponen:
 
-- `scraper.py` — 58 market;
-- `scraper_rajapaito.py` — 13 market;
-- `run_scrapers.py` — menjalankan keduanya secara berurutan;
-- `scraper_runtime.py` — retry, validasi, dan snapshot replacement guard.
-
-Total registry adalah **71 market**. Setiap market menyimpan maksimal **1.200 result**, dengan urutan histori lama ke terbaru.
-
-### Eksekusi produksi scraper
-
-```bash
-python run_scrapers.py
+```text
+scraper.py
+scraper_rajapaito.py
+scraper_runtime.py
+run_scrapers.py
 ```
 
-Render menjalankan command tersebut otomatis setiap enam jam melalui `render.yaml`.
+Perlindungan data:
 
-## Phase 2 — Engine Core v0.1
+- retry untuk network error, HTTP 408, 429, dan 5xx;
+- setiap result harus empat digit;
+- snapshot minimal 28 result;
+- snapshot baru ditolak bila jumlahnya turun di bawah 50% snapshot lama;
+- maksimal 1.200 result per market.
 
-Struktur utama:
+## Engine Core v0.1
+
+Struktur:
 
 ```text
 engine/
@@ -49,53 +89,21 @@ engine/
     frequency.py
     recency_frequency.py
 run_engine.py
+run_pipeline.py
 ```
 
-Alur engine:
+Model awal:
 
-```text
-Supabase markets
-→ canonical history validation
-→ adaptive windows
-→ model registry
-→ walk-forward evaluation
-→ theoretical baseline comparison
-→ deterministic candidate selection
-→ auditable research output
-→ optional Supabase audit persistence
-```
+- `frequency`;
+- `recency_frequency`.
 
-### Model awal
-
-- `frequency` — distribusi frekuensi digit per posisi;
-- `recency_frequency` — distribusi frekuensi dengan bobot peluruhan berdasarkan usia result.
-
-Keduanya menghasilkan distribusi probabilitas untuk digit 0–9 pada masing-masing posisi:
-
-```text
-0 = AS
-1 = KOP
-2 = KEPALA
-3 = EKOR
-```
-
-### Walk-forward evaluation
-
-Untuk setiap target historis:
-
-```text
-training = hanya data sebelum target
-target   = result berikutnya
-future data tidak masuk training
-```
-
-Kandidat diuji berdasarkan kombinasi:
+Kandidat diuji untuk posisi AS, KOP, KEPALA, dan EKOR menggunakan kombinasi:
 
 ```text
 model × window × evaluation horizon × posisi
 ```
 
-Default:
+Default produksi:
 
 ```env
 ENGINE_WINDOWS=70,150,300,500,700,1000
@@ -106,76 +114,73 @@ ENGINE_TOP_K=5
 ENGINE_RECENT_EVAL_SIZE=14
 ENGINE_LAPLACE_ALPHA=1
 ENGINE_RECENCY_HALF_LIFE=60
+ENGINE_PERSIST_AUDITS=true
+ENGINE_RUN_SOURCE=render_cron_full
 ```
 
-Window yang melebihi histori tersedia tidak digunakan. Bila tidak ada window konfigurasi yang memenuhi, engine memakai seluruh training history yang tersedia selama batas minimal training tercapai.
+Walk-forward selalu menggunakan data sebelum target. Target dan data masa depan tidak masuk training.
 
-### Metrik audit
-
-Setiap kandidat mencatat:
+Metrik audit:
 
 - sample size;
 - hit count dan hit rate;
-- theoretical baseline hit rate;
-- lift terhadap baseline;
+- theoretical baseline;
+- lift;
 - recent hit rate;
 - longest miss streak;
-- mean probability untuk digit aktual;
+- mean actual probability;
 - log loss;
 - Brier score.
 
-Pemilihan kandidat menggunakan urutan deterministik, bukan weighted score tersembunyi. Prioritas dimulai dari lift, sample size, recent hit rate, probability quality, log loss, dan Brier score.
+## Supabase
 
-### Menjalankan engine
+Tabel ingest:
 
-Gunakan environment Supabase yang sama dengan scraper:
-
-```bash
-python run_engine.py
+```text
+markets
 ```
 
-Untuk membatasi market selama riset:
+Tabel audit engine:
 
-```env
-ENGINE_MARKETS=SINGAPORE,JAPAN
+```text
+engine_runs
+engine_market_audits
 ```
 
-Output berupa JSON audit per market dan ringkasan akhir. Contoh status:
+Setiap full run membuat satu record `engine_runs` dan satu `engine_market_audits` untuk setiap market yang berhasil dievaluasi. Status run dapat berupa `running`, `succeeded`, `partial`, atau `failed`.
 
-```json
-{
-  "engine_version": "0.1.0",
-  "release_status": "research_only"
-}
+SQL schema tidak disimpan dalam repository. SQL diberikan langsung melalui prosedur deployment terkontrol.
+
+## Mobile-first web console
+
+Aplikasi Next.js berada di `web/` dan ditujukan untuk Vercel.
+
+```text
+Vercel / Next.js
+        ↓ server-side read
+Supabase
+        ↑ scheduled write
+Render / Python pipeline
 ```
 
-Engine belum dimasukkan ke Cron Job Render. Aktivasi otomatis dilakukan setelah persistence dan runtime live diverifikasi.
+Fitur saat ini:
 
-### Audit persistence
+- registry 71 market;
+- freshness dan history depth;
+- latest result;
+- pencarian dan filter;
+- halaman detail market;
+- statistik deskriptif posisi digit;
+- mobile card layout dan desktop table;
+- web-app manifest dan safe-area support.
 
-Persistence bersifat opt-in dan default-nya nonaktif:
+Audit engine belum ditampilkan di web. Itu merupakan tahap berikutnya setelah full-run pertama tersimpan dengan benar.
 
-```env
-ENGINE_PERSIST_AUDITS=false
-ENGINE_RUN_SOURCE=manual
-```
-
-Setelah tabel Supabase dibuat, ubah `ENGINE_PERSIST_AUDITS=true`. Setiap eksekusi akan menyimpan satu record pada `engine_runs` dan satu audit per market pada `engine_market_audits`.
-
-SQL pembuatan tabel tidak disimpan di repository. SQL diberikan langsung melalui chat atau prosedur deployment terkontrol.
-
-## Environment
-
-Variable wajib:
+## Environment lokal
 
 ```env
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
-```
-
-Variable scraper:
-
-```env
 SCRAPE_HISTORY_LIMIT=1200
 RAJAPAITO_ORDER_START=59
 SCRAPE_RETRY_ATTEMPTS=3
@@ -183,82 +188,39 @@ SCRAPE_RETRY_BACKOFF_SECONDS=2,5,10
 SCRAPE_RETRY_JITTER_SECONDS=1
 SCRAPE_MIN_RESULTS=28
 SCRAPE_MIN_RETENTION_RATIO=0.5
+ENGINE_WINDOWS=70,150,300,500,700,1000
+ENGINE_EVAL_HORIZONS=14,28,56
+ENGINE_MIN_HISTORY=70
+ENGINE_MIN_TRAIN_SIZE=50
+ENGINE_TOP_K=5
+ENGINE_RECENT_EVAL_SIZE=14
+ENGINE_LAPLACE_ALPHA=1
+ENGINE_RECENCY_HALF_LIFE=60
+ENGINE_MARKETS=
+ENGINE_PERSIST_AUDITS=false
+ENGINE_RUN_SOURCE=manual
 ```
-
-Variable engine tersedia di `.env.example` dan seluruhnya memiliki default.
 
 Jangan commit credential asli atau file `.env`.
 
-## Struktur tabel Supabase
-
-Scraper dan engine membaca tabel `markets`:
-
-```text
-id           text primary key
-name         text
-history_data text
-order        integer
-updated_at   timestamptz
-```
-
-Persistence engine menggunakan tabel berikut setelah diaktifkan:
-
-```text
-engine_runs
-engine_market_audits
-```
-
-Kedua tabel tersebut menyimpan audit riset, bukan prediksi produksi.
-
-## Mobile-first web console
-
-Folder `web/` berisi aplikasi Next.js untuk Vercel. UI menampilkan registry market, freshness, history depth, detail result, dan statistik deskriptif. Layout utama menggunakan kartu sentuh pada layar ponsel dan tabel pada desktop.
-
-Web belum menampilkan audit engine sampai persistence live selesai diverifikasi.
-
-## Perlindungan data scraper
-
-Snapshot tidak ditulis ke Supabase apabila:
-
-- histori kosong;
-- ada token yang bukan empat digit;
-- jumlah data kurang dari 28;
-- jumlah snapshot baru kurang dari 50% snapshot yang sudah tersimpan.
-
-Snapshot lama tetap aman ketika snapshot baru ditolak.
-
 ## Test
-
-Semua test tidak mengakses website asli dan tidak menulis ke Supabase nyata:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Coverage scraper mencakup parser, retry, guard, upsert, dan runner.
+Coverage mencakup scraper parser, retry, guard, Supabase upsert, engine validation, adaptive windows, probability models, anti-future-leakage walk-forward, audit persistence, dan orchestration full pipeline.
 
-Coverage engine mencakup:
-
-- preservasi duplikasi result;
-- adaptive windows;
-- normalisasi distribusi probabilitas;
-- respons model recency terhadap regime terbaru;
-- walk-forward tanpa future leakage;
-- pemisahan market invalid;
-- output audit berstatus `research_only`;
-- lifecycle audit persistence dan status run.
-
-## Batas Phase 2 v0.1
+## Batas saat ini
 
 Belum tersedia:
 
 - release gate produksi;
 - prediction journal;
-- settlement otomatis;
-- model transition, delta, motif, cycle, momentum, dan regime;
+- automatic settlement;
+- transition, delta, motif, cycle, momentum, dan regime models;
 - ensemble;
-- BBFS dan Angka Ikut;
-- scheduler engine di Render;
+- BBFS, Angka Ikut, angka mati, confidence, dan risk output;
 - tampilan audit engine pada web.
 
-Langkah berikutnya adalah membuat dua tabel persistence di Supabase, mengaktifkan persistence untuk satu atau dua market, lalu memeriksa hasil audit sebelum menambahkan scheduler engine.
+Langkah berikutnya adalah memeriksa full-run pertama pada Render dan Supabase, kemudian menampilkan audit engine yang tersimpan pada mobile web console.
