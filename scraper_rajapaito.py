@@ -1,9 +1,12 @@
 import os
+import random
 import re
 import time
-import requests
+
 from bs4 import BeautifulSoup
 from supabase import create_client
+
+from scraper_runtime import fetch_with_retry, upsert_market_snapshot
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY") or os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -43,16 +46,15 @@ HEADERS = {
 
 def scrape_rajapaito_market(url: str, limit: int = HISTORY_LIMIT) -> str:
     try:
-        res = requests.get(
+        response = fetch_with_retry(
             url,
             headers=HEADERS,
-            timeout=25,
+            timeout=(10, 30),
             allow_redirects=True,
             verify=False,
         )
-        res.raise_for_status()
 
-        soup = BeautifulSoup(res.text, "html.parser")
+        soup = BeautifulSoup(response.text, "html.parser")
         table = soup.select_one("table.keluaran-table") or soup.find("table")
 
         if not table:
@@ -71,7 +73,10 @@ def scrape_rajapaito_market(url: str, limit: int = HISTORY_LIMIT) -> str:
             if "TAHUN" in row_text:
                 continue
 
-            if any(day in row_text for day in ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]):
+            if any(
+                day in row_text
+                for day in ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"]
+            ):
                 continue
 
             for cell in cells:
@@ -85,9 +90,8 @@ def scrape_rajapaito_market(url: str, limit: int = HISTORY_LIMIT) -> str:
                 cleaned.append(item)
 
         return " ".join(cleaned[-limit:])
-
-    except Exception as e:
-        print(f"Error scraping Rajapaito {url}: {e}")
+    except Exception as exc:
+        print(f"ERROR: scrape_failed source=rajapaito url={url} error={exc}")
         return ""
 
 
@@ -96,25 +100,40 @@ def main():
     errors = 0
 
     for offset, (market_id, url) in enumerate(RAJAPAITO_MARKETS.items()):
-        data = scrape_rajapaito_market(url)
-        items = data.split()
+        current_order = RAJAPAITO_ORDER_START + offset
 
-        if data:
-            supabase.table("markets").upsert({
-                "id": market_id,
-                "name": market_id,
-                "history_data": data,
-                "order": RAJAPAITO_ORDER_START + offset,
-                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            }).execute()
+        try:
+            data = scrape_rajapaito_market(url)
+            if not data:
+                print(f"REJECT: market={market_id} reason=empty_history")
+                errors += 1
+                continue
 
-            print(f"OK: {market_id} | total={len(items)} | latest={items[-1]}")
-            success += 1
-        else:
-            print(f"SKIP: {market_id} (data kosong)")
+            saved, reason, total = upsert_market_snapshot(
+                supabase,
+                market_id=market_id,
+                name=market_id,
+                history_data=data,
+                order=current_order,
+                updated_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            )
+
+            if saved:
+                latest = data.split()[-1]
+                print(
+                    f"OK: market={market_id} total={total} latest={latest} order={current_order}"
+                )
+                success += 1
+            else:
+                print(f"REJECT: market={market_id} total={total} reason={reason}")
+                errors += 1
+        except Exception as exc:
+            print(f"ERROR: market={market_id} error={exc}")
             errors += 1
+        finally:
+            time.sleep(random.uniform(1, 2))
 
-    print(f"\nSelesai scraper Rajapaito: {success} OK, {errors} skip/error")
+    print(f"\nSelesai scraper Rajapaito: {success} OK, {errors} gagal/reject")
     return success, errors
 
 
