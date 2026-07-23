@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+import json
+import os
+from typing import Any
+
+from engine.config import EngineConfig
+from engine.data_loader import create_supabase_client, load_market_histories
+from engine.evaluator import evaluate_market
+from engine.output_builder import build_market_audit
+from engine.registry import build_model_registry
+
+
+def _configured_market_ids() -> set[str] | None:
+    raw = os.environ.get("ENGINE_MARKETS", "").strip()
+    if not raw:
+        return None
+    values = {item.strip() for item in raw.split(",") if item.strip()}
+    return values or None
+
+
+def run_engine(*, client=None, config: EngineConfig | None = None) -> dict[str, Any]:
+    resolved_config = config or EngineConfig.from_env()
+    resolved_client = client or create_supabase_client()
+    histories, validation_errors = load_market_histories(
+        resolved_client,
+        min_history=resolved_config.min_history,
+        market_ids=_configured_market_ids(),
+    )
+    models = build_model_registry(resolved_config)
+
+    audits: list[dict[str, Any]] = []
+    engine_errors: list[dict[str, str]] = []
+    for market in histories:
+        try:
+            evaluations = evaluate_market(market.results, models, resolved_config)
+            audit = build_market_audit(market, evaluations, models, resolved_config)
+            audits.append(audit)
+            print(json.dumps(audit, separators=(",", ":"), sort_keys=True))
+        except Exception as exc:
+            engine_errors.append({"market_id": market.market_id, "reason": str(exc)})
+            print(f"ENGINE_ERROR: market={market.market_id} reason={exc}")
+
+    summary = {
+        "engine_version": "0.1.0",
+        "release_status": "research_only",
+        "markets_loaded": len(histories),
+        "markets_evaluated": len(audits),
+        "validation_errors": validation_errors,
+        "engine_errors": engine_errors,
+    }
+    print(json.dumps({"engine_summary": summary}, separators=(",", ":"), sort_keys=True))
+    return summary
+
+
+def main() -> int:
+    summary = run_engine()
+    return 0 if summary["markets_evaluated"] > 0 and not summary["engine_errors"] else 1
