@@ -12,6 +12,16 @@ services:
         value: "1200"
       - key: RAJAPAITO_ORDER_START
         value: "59"
+      - key: SCRAPE_RETRY_ATTEMPTS
+        value: "3"
+      - key: SCRAPE_RETRY_BACKOFF_SECONDS
+        value: "2,5,10"
+      - key: SCRAPE_RETRY_JITTER_SECONDS
+        value: "1"
+      - key: SCRAPE_MIN_RESULTS
+        value: "28"
+      - key: SCRAPE_MIN_RETENTION_RATIO
+        value: "0.5"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
