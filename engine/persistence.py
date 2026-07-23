@@ -7,8 +7,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from engine.config import EngineConfig
+from engine.release_gate import config_snapshot as gate_config_snapshot
 
-ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION = "0.2.0"
 RELEASE_STATUS = "research_only"
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 
@@ -34,6 +35,7 @@ def config_snapshot(config: EngineConfig) -> dict[str, Any]:
     snapshot = asdict(config)
     snapshot["windows"] = list(config.windows)
     snapshot["eval_horizons"] = list(config.eval_horizons)
+    snapshot["release_gate"] = gate_config_snapshot()
     return snapshot
 
 
