@@ -44,6 +44,20 @@ services:
         value: "1"
       - key: ENGINE_RECENCY_HALF_LIFE
         value: "60"
+      - key: ENGINE_GATE_MIN_SAMPLE_SIZE
+        value: "28"
+      - key: ENGINE_GATE_MIN_LIFT
+        value: "0.02"
+      - key: ENGINE_GATE_RECENT_MIN_LIFT
+        value: "0"
+      - key: ENGINE_GATE_MAX_MISS_STREAK
+        value: "8"
+      - key: ENGINE_GATE_MIN_ACTUAL_PROBABILITY
+        value: "0.1"
+      - key: ENGINE_GATE_MAX_LOG_LOSS
+        value: "2.302585093"
+      - key: ENGINE_GATE_MAX_BRIER_SCORE
+        value: "0.9"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
