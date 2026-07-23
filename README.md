@@ -1,14 +1,14 @@
 # NEW.ENGINE
 
-Tahap saat ini: **Phase 2 — automated research engine pipeline + mobile audit console**.
+Tahap saat ini: **Phase 2 — automated research engine pipeline + evidence release gate**.
 
 NEW.ENGINE terdiri dari tiga komponen:
 
 1. scraper Python untuk 71 market;
-2. Engine Core v0.1 untuk walk-forward probability audit;
+2. Engine Core v0.2 untuk walk-forward audit dan deterministic release gate;
 3. mobile-first Next.js research console pada folder `web/`.
 
-Seluruh output engine masih berstatus `research_only`. Sistem belum menerbitkan BBFS, Angka Ikut, atau prediksi produksi.
+Seluruh output engine masih berstatus `research_only`. Gate pass bukan prediksi produksi dan sistem belum menerbitkan BBFS atau Angka Ikut.
 
 ## Production pipeline
 
@@ -26,6 +26,7 @@ scraper utama (58 market)
 → validation dan snapshot guard
 → Engine Core untuk seluruh market valid
 → walk-forward evaluation
+→ deterministic evidence release gate
 → audit persistence ke Supabase
 → final pipeline status
 ```
@@ -39,6 +40,7 @@ Schedule   : 0 */6 * * *
 Command    : python run_pipeline.py
 Markets    : seluruh registry, tanpa ENGINE_MARKETS filter
 Persistence: aktif
+Release gate: aktif, research-only
 ```
 
 Schedule menggunakan UTC:
@@ -69,7 +71,7 @@ Perlindungan data:
 - snapshot baru ditolak bila jumlahnya turun di bawah 50% snapshot lama;
 - maksimal 1.200 result per market.
 
-## Engine Core v0.1
+## Engine Core v0.2
 
 Struktur:
 
@@ -83,6 +85,7 @@ engine/
   evaluator.py
   registry.py
   output_builder.py
+  release_gate.py
   persistence.py
   runner.py
   models/
@@ -103,21 +106,6 @@ Kandidat diuji untuk posisi AS, KOP, KEPALA, dan EKOR menggunakan kombinasi:
 model × window × evaluation horizon × posisi
 ```
 
-Default produksi:
-
-```env
-ENGINE_WINDOWS=70,150,300,500,700,1000
-ENGINE_EVAL_HORIZONS=14,28,56
-ENGINE_MIN_HISTORY=70
-ENGINE_MIN_TRAIN_SIZE=50
-ENGINE_TOP_K=5
-ENGINE_RECENT_EVAL_SIZE=14
-ENGINE_LAPLACE_ALPHA=1
-ENGINE_RECENCY_HALF_LIFE=60
-ENGINE_PERSIST_AUDITS=true
-ENGINE_RUN_SOURCE=render_cron_full
-```
-
 Walk-forward selalu menggunakan data sebelum target. Target dan data masa depan tidak masuk training.
 
 Metrik audit:
@@ -131,6 +119,36 @@ Metrik audit:
 - mean actual probability;
 - log loss;
 - Brier score.
+
+## Evidence release gate
+
+Setiap kandidat posisi menghasilkan status `pass` atau `hold`. Market hanya berstatus `eligible` bila keempat posisi lulus seluruh check.
+
+Default produksi:
+
+```env
+ENGINE_GATE_MIN_SAMPLE_SIZE=28
+ENGINE_GATE_MIN_LIFT=0.02
+ENGINE_GATE_RECENT_MIN_LIFT=0
+ENGINE_GATE_MAX_MISS_STREAK=8
+ENGINE_GATE_MIN_ACTUAL_PROBABILITY=0.1
+ENGINE_GATE_MAX_LOG_LOSS=2.302585093
+ENGINE_GATE_MAX_BRIER_SCORE=0.9
+```
+
+Check yang diterapkan:
+
+- sample size memenuhi minimum;
+- lift minimal dua percentage point di atas baseline;
+- recent hit rate tidak di bawah baseline;
+- longest miss streak tidak melebihi batas;
+- mean actual probability minimal setara uniform baseline;
+- log loss tidak lebih buruk dari uniform 10-digit baseline;
+- Brier score tidak lebih buruk dari uniform 10-digit baseline.
+
+Keputusan gate menyimpan actual value, threshold, operator, hasil check, dan reason code. Tidak ada weighted score tersembunyi.
+
+`eligible` tetap `research_only`. Prediction journal dan settlement wajib tersedia sebelum rilis produksi dipertimbangkan.
 
 ## Supabase
 
@@ -147,7 +165,9 @@ engine_runs
 engine_market_audits
 ```
 
-Setiap full run membuat satu record `engine_runs` dan satu `engine_market_audits` untuk setiap market yang berhasil dievaluasi. Status run dapat berupa `running`, `succeeded`, `partial`, atau `failed`.
+Setiap full run membuat satu record `engine_runs` dan satu `engine_market_audits` untuk setiap market yang berhasil dievaluasi. Audit JSON menyimpan keputusan release gate tanpa perubahan schema tabel tambahan.
+
+Status run dapat berupa `running`, `succeeded`, `partial`, atau `failed`.
 
 SQL schema tidak disimpan dalam repository. SQL diberikan langsung melalui prosedur deployment terkontrol.
 
@@ -174,9 +194,10 @@ Fitur saat ini:
 - mobile card layout dan desktop table;
 - web-app manifest dan safe-area support;
 - halaman `/engine` untuk run audit terbaru;
-- pencarian dan filter kualitas audit market;
+- filter `GATE PASS` dan `GATE HOLD`;
 - ringkasan kandidat terbaik AS, KOP, KEPALA, dan EKOR;
 - detail model, window, horizon, lift, hit rate, sample size, miss streak, log loss, Brier score, top digit, dan distribusi probabilitas;
+- reason codes dan check-by-check release gate evidence;
 - navigasi dua arah antara snapshot data dan audit engine.
 
 Audit yang tampil tetap berstatus `research_only` dan tidak boleh diperlakukan sebagai prediksi produksi.
@@ -204,6 +225,13 @@ ENGINE_RECENCY_HALF_LIFE=60
 ENGINE_MARKETS=
 ENGINE_PERSIST_AUDITS=false
 ENGINE_RUN_SOURCE=manual
+ENGINE_GATE_MIN_SAMPLE_SIZE=28
+ENGINE_GATE_MIN_LIFT=0.02
+ENGINE_GATE_RECENT_MIN_LIFT=0
+ENGINE_GATE_MAX_MISS_STREAK=8
+ENGINE_GATE_MIN_ACTUAL_PROBABILITY=0.1
+ENGINE_GATE_MAX_LOG_LOSS=2.302585093
+ENGINE_GATE_MAX_BRIER_SCORE=0.9
 ```
 
 Jangan commit credential asli atau file `.env`.
@@ -214,7 +242,7 @@ Jangan commit credential asli atau file `.env`.
 python -m unittest discover -s tests -v
 ```
 
-Coverage mencakup scraper parser, retry, guard, Supabase upsert, engine validation, adaptive windows, probability models, anti-future-leakage walk-forward, audit persistence, dan orchestration full pipeline.
+Coverage mencakup scraper parser, retry, guard, Supabase upsert, engine validation, adaptive windows, probability models, anti-future-leakage walk-forward, audit persistence, release gate, dan orchestration full pipeline.
 
 Web CI menjalankan TypeScript typecheck dan production build untuk folder `web/`.
 
@@ -222,11 +250,10 @@ Web CI menjalankan TypeScript typecheck dan production build untuk folder `web/`
 
 Belum tersedia:
 
-- release gate produksi;
 - prediction journal;
 - automatic settlement;
 - transition, delta, motif, cycle, momentum, dan regime models;
 - ensemble;
 - BBFS, Angka Ikut, angka mati, confidence, dan risk output.
 
-Langkah berikutnya adalah membangun release gate berbasis evidence yang menahan kandidat lemah sebelum prediction journal diperkenalkan.
+Langkah berikutnya adalah prediction journal: menyimpan kandidat yang lolos gate sebagai snapshot riset immutable, kemudian melakukan settlement otomatis saat result baru masuk.
