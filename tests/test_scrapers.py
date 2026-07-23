@@ -61,6 +61,7 @@ class ScraperSmokeTests(unittest.TestCase):
         os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test-key"
         os.environ.pop("SUPABASE_ANON_KEY", None)
         os.environ.pop("SCRAPE_HISTORY_LIMIT", None)
+        os.environ.pop("RAJAPAITO_ORDER_START", None)
 
         cls.fake_supabase = FakeSupabaseClient()
         fake_supabase_module = types.ModuleType("supabase")
@@ -69,6 +70,9 @@ class ScraperSmokeTests(unittest.TestCase):
 
         cls.legacy = load_module("new_engine_legacy_scraper", "scraper.py")
         cls.rajapaito = load_module("new_engine_rajapaito_scraper", "scraper_rajapaito.py")
+        sys.modules["scraper"] = cls.legacy
+        sys.modules["scraper_rajapaito"] = cls.rajapaito
+        cls.runner = load_module("new_engine_scraper_runner", "run_scrapers.py")
 
         cls.values = [f"{index:04d}" for index in range(1205)]
         cls.legacy_html = (
@@ -129,12 +133,51 @@ class ScraperSmokeTests(unittest.TestCase):
             patch.object(self.legacy.time, "sleep", return_value=None),
             patch("builtins.print"),
         ):
-            self.legacy.main()
+            success, errors = self.legacy.main()
 
+        self.assertEqual((success, errors), (len(self.legacy.MARKETS), 0))
         self.assertEqual(len(self.fake_supabase.upserts), len(self.legacy.MARKETS))
         self.assertTrue(
             all(len(row["history_data"].split()) == 1200 for row in self.fake_supabase.upserts)
         )
+
+    def test_rajapaito_main_upserts_every_market(self):
+        self.fake_supabase.upserts.clear()
+
+        with (
+            patch.object(
+                self.rajapaito.requests,
+                "get",
+                return_value=FakeResponse(self.rajapaito_html),
+            ),
+            patch("builtins.print"),
+        ):
+            success, errors = self.rajapaito.main()
+
+        self.assertEqual((success, errors), (len(self.rajapaito.RAJAPAITO_MARKETS), 0))
+        self.assertEqual(len(self.fake_supabase.upserts), len(self.rajapaito.RAJAPAITO_MARKETS))
+        self.assertEqual(self.fake_supabase.upserts[0]["order"], 59)
+        self.assertEqual(self.fake_supabase.upserts[-1]["order"], 71)
+
+    def test_runner_returns_success_when_both_jobs_succeed(self):
+        with (
+            patch.object(self.legacy, "main", return_value=(58, 0)),
+            patch.object(self.rajapaito, "main", return_value=(13, 0)),
+            patch("builtins.print"),
+        ):
+            status = self.runner.main()
+
+        self.assertEqual(status, 0)
+
+    def test_runner_returns_failure_when_a_job_has_errors(self):
+        with (
+            patch.object(self.legacy, "main", return_value=(57, 1)),
+            patch.object(self.rajapaito, "main", return_value=(13, 0)),
+            patch("builtins.print"),
+        ):
+            status = self.runner.main()
+
+        self.assertEqual(status, 1)
 
 
 if __name__ == "__main__":
