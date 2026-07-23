@@ -1,0 +1,12 @@
+@media (max-width: 720px) {
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .topbar-status {
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+}
