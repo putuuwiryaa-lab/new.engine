@@ -1,9 +1,16 @@
 import os
 import re
+import time
 import requests
 from bs4 import BeautifulSoup
+from supabase import create_client
+
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY") or os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HISTORY_LIMIT = int(os.environ.get("SCRAPE_HISTORY_LIMIT", "1200"))
+RAJAPAITO_ORDER_START = int(os.environ.get("RAJAPAITO_ORDER_START", "59"))
 
 RAJAPAITO_MARKETS = {
     "TENNESSE MORNING": "https://w2.rajapaito1.net/data-togel-tennesse-morning/",
@@ -84,15 +91,36 @@ def scrape_rajapaito_market(url: str, limit: int = HISTORY_LIMIT) -> str:
         return ""
 
 
+def main():
+    success = 0
+    errors = 0
+
+    for offset, (market_id, url) in enumerate(RAJAPAITO_MARKETS.items()):
+        data = scrape_rajapaito_market(url)
+        items = data.split()
+
+        if data:
+            supabase.table("markets").upsert({
+                "id": market_id,
+                "name": market_id,
+                "history_data": data,
+                "order": RAJAPAITO_ORDER_START + offset,
+                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            }).execute()
+
+            print(f"OK: {market_id} | total={len(items)} | latest={items[-1]}")
+            success += 1
+        else:
+            print(f"SKIP: {market_id} (data kosong)")
+            errors += 1
+
+    print(f"\nSelesai scraper Rajapaito: {success} OK, {errors} skip/error")
+    return success, errors
+
+
 if __name__ == "__main__":
     import urllib3
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-    for market_id, url in RAJAPAITO_MARKETS.items():
-        data = scrape_rajapaito_market(url)
-        items = data.split()
-        print(market_id)
-        print("TOTAL:", len(items))
-        print("LATEST:", items[-1] if items else "KOSONG")
-        print(data)
+    _, error_count = main()
+    raise SystemExit(1 if error_count else 0)
