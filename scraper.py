@@ -1,9 +1,11 @@
-import requests
+import os
+import random
 import re
 import time
-import random
-import os
+
 from supabase import create_client
+
+from scraper_runtime import fetch_with_retry, upsert_market_snapshot
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY") or os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -11,6 +13,9 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BASE = "https://159.65.133.131"
 HISTORY_LIMIT = int(os.environ.get("SCRAPE_HISTORY_LIMIT", "1200"))
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+}
 
 MARKETS = {
   "MAGNUM CAMBODIA": "/data-pengeluaran-togel-magnum-cambodia/",
@@ -86,33 +91,40 @@ PRIORITY_ORDER = {
   "HONGKONG LOTTO": 10,
 }
 
+
 def scrape_market(url):
     try:
-        res = requests.get(
+        response = fetch_with_retry(
             BASE + url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-            timeout=15,
-            verify=False
+            headers=HEADERS,
+            timeout=(10, 30),
+            verify=False,
         )
-        html = res.text
+        html = response.text
 
-        start_idx = html.find('Tema Terang')
-        end_idx = html.find('RESET')
+        start_idx = html.find("Tema Terang")
+        end_idx = html.find("RESET")
 
         if start_idx == -1 or end_idx == -1:
-            return ''
+            return ""
 
         section = html[start_idx:end_idx]
         digits = re.findall(r'class="paito-digit">(\d)</span>', section)
 
         results = []
-        for i in range(0, len(digits) - 3, 4):
-            results.append(digits[i] + digits[i+1] + digits[i+2] + digits[i+3])
+        for index in range(0, len(digits) - 3, 4):
+            results.append(
+                digits[index]
+                + digits[index + 1]
+                + digits[index + 2]
+                + digits[index + 3]
+            )
 
-        return ' '.join(results[-HISTORY_LIMIT:])
-    except Exception as e:
-        print(f"Error scraping {url}: {e}")
-        return ''
+        return " ".join(results[-HISTORY_LIMIT:])
+    except Exception as exc:
+        print(f"ERROR: scrape_failed source=utama url={url} error={exc}")
+        return ""
+
 
 def main():
     next_order = 11
@@ -120,31 +132,44 @@ def main():
     errors = 0
 
     for market_id, url in MARKETS.items():
-        data = scrape_market(url)
-        if data:
-            current_order = PRIORITY_ORDER.get(market_id, next_order)
-            if market_id not in PRIORITY_ORDER:
-                next_order += 1
+        current_order = PRIORITY_ORDER.get(market_id, next_order)
+        if market_id not in PRIORITY_ORDER:
+            next_order += 1
 
-            supabase.table('markets').upsert({
-                'id': market_id,
-                'name': market_id,
-                'history_data': data,
-                'order': current_order,
-                'updated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-            }).execute()
+        try:
+            data = scrape_market(url)
+            if not data:
+                print(f"REJECT: market={market_id} reason=empty_history")
+                errors += 1
+                continue
 
-            print(f"OK: {market_id}")
-            success += 1
-        else:
-            print(f"SKIP: {market_id} (data kosong)")
+            saved, reason, total = upsert_market_snapshot(
+                supabase,
+                market_id=market_id,
+                name=market_id,
+                history_data=data,
+                order=current_order,
+                updated_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            )
+
+            if saved:
+                latest = data.split()[-1]
+                print(
+                    f"OK: market={market_id} total={total} latest={latest} order={current_order}"
+                )
+                success += 1
+            else:
+                print(f"REJECT: market={market_id} total={total} reason={reason}")
+                errors += 1
+        except Exception as exc:
+            print(f"ERROR: market={market_id} error={exc}")
             errors += 1
+        finally:
+            time.sleep(random.uniform(2, 4))
 
-        delay = random.uniform(2, 4)
-        time.sleep(delay)
-
-    print(f"\nSelesai scraper utama: {success} OK, {errors} skip/error")
+    print(f"\nSelesai scraper utama: {success} OK, {errors} gagal/reject")
     return success, errors
+
 
 if __name__ == "__main__":
     _, error_count = main()
