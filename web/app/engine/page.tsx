@@ -42,6 +42,12 @@ function configValue(value: unknown): string {
   return String(value);
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 function SetupError({ message }: { message: string }) {
   return (
     <main className="shell centered-shell">
@@ -89,10 +95,12 @@ export default async function EnginePage() {
     );
   }
 
-  const allPositiveMarkets = audits.filter((audit) =>
-    audit.positions.length === 4 && audit.positions.every((position) => position.selectedCandidate.lift > 0),
+  const eligibleMarkets = audits.filter(
+    (audit) => audit.marketReleaseGate.status === "eligible",
   ).length;
+  const heldMarkets = audits.length - eligibleMarkets;
   const configuration = run.config;
+  const gateConfiguration = asRecord(configuration.release_gate);
 
   return (
     <main className={`shell ${styles.shell}`}>
@@ -114,11 +122,12 @@ export default async function EnginePage() {
 
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
-          <p className="eyebrow">ENGINE CORE / EVIDENCE LAYER</p>
-          <h1>Audit every candidate before release.</h1>
+          <p className="eyebrow">ENGINE CORE / EVIDENCE GATE</p>
+          <h1>Hold weak candidates before release.</h1>
           <p>
-            Run terbaru menampilkan kandidat terbaik hasil walk-forward untuk setiap posisi dan market.
-            Seluruh output masih dikunci sebagai riset sampai release gate diterapkan.
+            Run terbaru menilai kandidat terbaik hasil walk-forward dengan release gate deterministik.
+            Gate pass hanya berarti evidence minimum terpenuhi; seluruh output tetap research-only sampai
+            prediction journal dan settlement tersedia.
           </p>
         </div>
         <div className={styles.heroMeta}>
@@ -134,19 +143,19 @@ export default async function EnginePage() {
           <span>dari {run.marketsLoaded} market valid</span>
         </article>
         <article className="metric-card">
-          <p>All-position positive</p>
-          <strong>{allPositiveMarkets}</strong>
-          <span>lift positif pada 4 posisi</span>
+          <p>Gate eligible</p>
+          <strong>{eligibleMarkets}</strong>
+          <span>4/4 posisi lulus</span>
         </article>
         <article className="metric-card">
-          <p>Engine errors</p>
-          <strong className={run.engineErrorCount ? "metric-warning" : ""}>{run.engineErrorCount}</strong>
-          <span>validation: {run.validationErrorCount}</span>
+          <p>Gate held</p>
+          <strong className={heldMarkets ? "metric-warning" : ""}>{heldMarkets}</strong>
+          <span>evidence belum lengkap</span>
         </article>
         <article className="metric-card accent-card">
           <p>Runtime</p>
           <strong className="timestamp-value">{formatDuration(run.startedAt, run.finishedAt)}</strong>
-          <span>{run.source}</span>
+          <span>{run.source} · errors {run.engineErrorCount}</span>
         </article>
       </section>
 
@@ -154,7 +163,7 @@ export default async function EnginePage() {
         <div className={styles.runHeading}>
           <div>
             <p className="eyebrow">LATEST RUN</p>
-            <h2>Execution record</h2>
+            <h2>Execution and gate configuration</h2>
           </div>
           <span className={`status-pill ${statusClass(run.status)}`}>{run.status.toUpperCase()}</span>
         </div>
@@ -180,16 +189,19 @@ export default async function EnginePage() {
           <span className={`${styles.configToken} mono`}>windows={configValue(configuration.windows)}</span>
           <span className={`${styles.configToken} mono`}>horizons={configValue(configuration.eval_horizons)}</span>
           <span className={`${styles.configToken} mono`}>top_k={configValue(configuration.top_k)}</span>
-          <span className={`${styles.configToken} mono`}>min_train={configValue(configuration.min_train_size)}</span>
-          <span className={`${styles.configToken} mono`}>half_life={configValue(configuration.recency_half_life)}</span>
+          <span className={`${styles.configToken} mono`}>gate_samples≥{configValue(gateConfiguration.min_sample_size)}</span>
+          <span className={`${styles.configToken} mono`}>gate_lift≥{configValue(gateConfiguration.min_lift)}</span>
+          <span className={`${styles.configToken} mono`}>miss≤{configValue(gateConfiguration.max_miss_streak)}</span>
+          <span className={`${styles.configToken} mono`}>logloss≤{configValue(gateConfiguration.max_log_loss)}</span>
+          <span className={`${styles.configToken} mono`}>brier≤{configValue(gateConfiguration.max_brier_score)}</span>
         </div>
       </section>
 
       <EngineAuditList audits={audits} />
 
       <footer>
-        <span>NEW.ENGINE Engine Audit Console</span>
-        <span className="mono">RESEARCH ONLY · WALK-FORWARD · AUDITABLE</span>
+        <span>NEW.ENGINE Evidence Gate Console</span>
+        <span className="mono">RESEARCH ONLY · DETERMINISTIC CHECKS · AUDITABLE</span>
       </footer>
     </main>
   );
