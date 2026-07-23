@@ -68,7 +68,15 @@ export default async function MarketDetailPage({
             <p className="brand-subtitle">Research Console</p>
           </div>
         </Link>
-        <Link className="back-link" href="/">← Kembali ke registry</Link>
+        <div className="topbar-status">
+          <Link className="back-link" href="/">Data registry</Link>
+          <Link
+            className="status-pill status-research"
+            href={`/engine/markets/${encodeURIComponent(market.id)}`}
+          >
+            ENGINE AUDIT
+          </Link>
+        </div>
       </header>
 
       <section className="detail-hero panel">
