@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import "./globals.css";
 import "./mobile.css";
+import "./app-shell.css";
 
 export const metadata: Metadata = {
   title: "NEW.ENGINE Research Console",
