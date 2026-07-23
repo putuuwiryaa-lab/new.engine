@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getLatestMarketAudit } from "@/lib/engine-audits";
 
 import styles from "../../engine.module.css";
+import gateStyles from "./gate.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,19 @@ function percent(value: number): string {
 function lift(value: number): string {
   const points = value * 100;
   return `${points >= 0 ? "+" : ""}${points.toFixed(2)} pp`;
+}
+
+function reasonLabel(value: string): string {
+  return value.replaceAll("_", " ").toUpperCase();
+}
+
+function checkLabel(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
+function checkNumber(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(4);
 }
 
 export default async function EngineMarketAuditPage({
@@ -60,6 +74,11 @@ export default async function EngineMarketAuditPage({
     );
   }
 
+  const marketEligible = audit.marketReleaseGate.status === "eligible";
+  const heldPositions = audit.positions
+    .filter((position) => position.releaseGate.status === "hold")
+    .map((position) => POSITION_LABELS[position.position] ?? `P${position.position}`);
+
   return (
     <main className={`shell ${styles.shell}`}>
       <header className="topbar">
@@ -67,7 +86,7 @@ export default async function EngineMarketAuditPage({
           <div className="brand-mark" aria-hidden="true">NE</div>
           <div>
             <p className="brand-name">NEW.ENGINE</p>
-            <p className="brand-subtitle">Engine Audit Console</p>
+            <p className="brand-subtitle">Evidence Gate Console</p>
           </div>
         </Link>
         <div className="topbar-status">
@@ -83,6 +102,9 @@ export default async function EngineMarketAuditPage({
           <p className="mono dim">{audit.marketId}</p>
         </div>
         <div className={styles.heroMeta}>
+          <span className={`status-pill ${marketEligible ? "status-ok" : "status-warn"}`}>
+            {marketEligible ? "GATE PASS" : "GATE HOLD"}
+          </span>
           <span className="status-pill status-research">{audit.releaseStatus.toUpperCase()}</span>
           <span className="version-tag mono">RUN {audit.runId.slice(0, 8)}</span>
         </div>
@@ -95,9 +117,9 @@ export default async function EngineMarketAuditPage({
           <span>result yang dianalisis</span>
         </article>
         <article className="metric-card">
-          <p>Candidates</p>
-          <strong>{audit.candidateCount.toLocaleString("id-ID")}</strong>
-          <span>model × window × horizon × posisi</span>
+          <p>Position gate</p>
+          <strong>{audit.marketReleaseGate.passedPositions}/{audit.marketReleaseGate.requiredPositions}</strong>
+          <span>posisi memenuhi seluruh check</span>
         </article>
         <article className="metric-card wide-metric">
           <p>Generated (WITA)</p>
@@ -106,9 +128,35 @@ export default async function EngineMarketAuditPage({
         </article>
       </section>
 
+      <section className={`panel ${gateStyles.marketGate}`}>
+        <div className={gateStyles.marketGateTop}>
+          <div>
+            <p className="eyebrow">MARKET RELEASE GATE</p>
+            <h2>{marketEligible ? "Minimum evidence satisfied" : "Candidate release is held"}</h2>
+            <p>
+              Gate pass tetap research-only. Prediction journal dan settlement wajib tersedia sebelum
+              output dapat dipertimbangkan untuk rilis produksi.
+            </p>
+          </div>
+          <span className={`status-pill ${marketEligible ? "status-ok" : "status-warn"}`}>
+            {marketEligible ? "ELIGIBLE 4/4" : `HELD ${audit.marketReleaseGate.passedPositions}/4`}
+          </span>
+        </div>
+        <div className={gateStyles.reasonList}>
+          {marketEligible ? (
+            <span className={`${gateStyles.noReason} mono`}>ALL_POSITION_GATES_PASS</span>
+          ) : (
+            heldPositions.map((position) => (
+              <span className={`${gateStyles.reason} mono`} key={position}>{position}_HELD</span>
+            ))
+          )}
+        </div>
+      </section>
+
       <section className={styles.positionDetailGrid}>
         {audit.positions.map((position) => {
           const candidate = position.selectedCandidate;
+          const gatePass = position.releaseGate.status === "pass";
           const maximumProbability = Math.max(
             ...Object.values(position.probabilities),
             0.000001,
@@ -122,11 +170,37 @@ export default async function EngineMarketAuditPage({
                   <h2>{POSITION_LABELS[position.position] ?? `P${position.position}`}</h2>
                   <p className="mono">{candidate.modelName} · W{candidate.window} · H{candidate.horizon}</p>
                 </div>
-                <span
-                  className={`status-pill ${candidate.lift > 0 ? "status-ok" : "status-warn"}`}
-                >
-                  LIFT {lift(candidate.lift)}
+                <span className={`status-pill ${gatePass ? "status-ok" : "status-warn"}`}>
+                  {gatePass ? "GATE PASS" : "GATE HOLD"}
                 </span>
+              </div>
+
+              <div className={gateStyles.positionGate}>
+                <div className={gateStyles.positionGateHeader}>
+                  <strong>Evidence checks</strong>
+                  <span className={`mono ${gatePass ? gateStyles.pass : gateStyles.hold}`}>
+                    LIFT {lift(candidate.lift)}
+                  </span>
+                </div>
+                <div className={gateStyles.reasonList}>
+                  {position.releaseGate.reasons.length ? (
+                    position.releaseGate.reasons.map((reason) => (
+                      <span className={`${gateStyles.reason} mono`} key={reason}>{reasonLabel(reason)}</span>
+                    ))
+                  ) : (
+                    <span className={`${gateStyles.noReason} mono`}>ALL_CHECKS_PASS</span>
+                  )}
+                </div>
+                <div className={gateStyles.checkGrid}>
+                  {Object.entries(position.releaseGate.checks).map(([name, check]) => (
+                    <div className={gateStyles.check} key={name}>
+                      <span className={gateStyles.checkName}>{checkLabel(name)}</span>
+                      <span className={`${gateStyles.checkValue} mono ${check.passed ? gateStyles.pass : gateStyles.hold}`}>
+                        {checkNumber(check.actual)} {check.operator} {checkNumber(check.threshold)} · {check.passed ? "PASS" : "HOLD"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className={styles.topDigits} aria-label="Top digits">
@@ -196,7 +270,7 @@ export default async function EngineMarketAuditPage({
 
       <footer>
         <span>{audit.marketName}</span>
-        <span className="mono">LATEST RESEARCH AUDIT · NOT A PRODUCTION RELEASE</span>
+        <span className="mono">EVIDENCE GATE · RESEARCH ONLY · NOT A PRODUCTION RELEASE</span>
       </footer>
     </main>
   );
